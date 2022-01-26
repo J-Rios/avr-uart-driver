@@ -53,6 +53,14 @@ defined(__AVR_ATmega328P__)
     #include "hal/atmega328/atmega328_uart.h"
     #define Uart Atmega328_Uart
 
+#elif \
+defined(__AVR_ATmega640__)   || defined(__AVR_ATmega1280__)  || \
+defined(__AVR_ATmega1281__)  || defined(__AVR_ATmega2560__)  || \
+defined(__AVR_ATmega2561__)
+
+    #include "hal/atmega2560/atmega2560_uart.h"
+    #define Uart Atmega2560_Uart
+
 #else
 
     #error "[AVR-UART Driver] Unsupported Device"

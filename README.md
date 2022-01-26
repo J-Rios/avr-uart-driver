@@ -9,3 +9,4 @@ The driver has been developed to keep a flexible and simple way to add support f
 List of current AVR devices that are supported:
 
 - ATmega48A/48PA/88A/88PA/168A/168PA/328/328P.
+- ATmega640/1280/1281/2560/2561.
