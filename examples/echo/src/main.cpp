@@ -2,8 +2,8 @@
 /**
  * @file    main.cpp
  * @author  Jose Miguel Rios Rubio <jrios.github@gmail.com>
- * @date    26-01-2022
- * @version 1.0.0
+ * @date    02-02-2022
+ * @version 1.0.1
  *
  * @section DESCRIPTION
  *
@@ -45,17 +45,17 @@
 
 int main(void)
 {
-    AvrUart Serial(F_CPU);
+    AvrUart Serial(UART_NUM, F_CPU);
 
     // Initilize UART0
-    Serial.setup(UART_NUM, UART_BAUD_RATE);
+    Serial.setup(UART_BAUD_RATE);
 
     while (1)
     {
         // Echo received data from UART
         uint8_t read_byte = 0xFF;
-        if (Serial.read(UART_NUM, &read_byte))
-            Serial.write(UART_NUM, read_byte);
+        if (Serial.read(&read_byte))
+            Serial.write(read_byte);
     }
 }
 
