@@ -3,7 +3,7 @@
  * @file    atmega2560_uart.h
  * @author  Jose Miguel Rios Rubio <jrios.github@gmail.com>
  * @date    02-02-2022
- * @version 1.1.0
+ * @version 1.1.1
  *
  * @section DESCRIPTION
  *
@@ -133,9 +133,10 @@ class AvrUart
 
         /**
          * @brief  Constructor. Takes UART number to use.
+         * @param  uart_num UART number to use (0 - UART0; 1 - UART1...).
          * @param  freq_cpu CPU Frequency (same as Fosc).
          */
-        AvrUart(const uint32_t freq_cpu);
+        AvrUart(const uint8_t uart_num, const uint32_t freq_cpu);
 
         /**
          * @brief  Destructor.
@@ -144,45 +145,41 @@ class AvrUart
 
         /**
          * @brief  Setup the UART.
-         * @param  uart_n UART number to use (0 - UART0; 1 - UART1...).
          * @param  baud_rate UART communication speed.
          */
-        bool setup(const uint8_t uart_n, const uint32_t baud_rate,
+        bool setup(const uint32_t baud_rate,
                 const bool internal_res_pullup=true);
 
         /**
          * @brief  UART send a byte.
-         * @param  uart_n UART number to use (0 - UART0; 1 - UART1...).
          * @param  write_byte Byte of data to send.
          */
-        bool write(const uint8_t uart_n, const uint8_t write_byte);
+        bool write(const uint8_t write_byte);
 
         /**
          * @brief  UART read received byte.
-         * @param  uart_n UART number to use (0 - UART0; 1 - UART1...).
          * @param  read_byte Pointer to store received byte.
          * @return Read result (success - true; fail - false).
          */
-        bool read(const uint8_t uart_n, uint8_t* read_byte);
+        bool read(uint8_t* read_byte);
 
         /**
          * @brief  Clear UART receive buffer.
-         * @param  uart_n UART number to use (0 - UART0; 1 - UART1...).
          */
-        bool flush_rx(const uint8_t uart_n);
+        bool flush_rx();
 
         /**
          * @brief  Get the number of bytes received and available to be read
          * from UART received data buffer.
-         * @param  uart_n UART number to use (0 - UART0; 1 - UART1...).
          * @return The number of bytes available to be read from RX buffer.
          */
-        uint16_t num_rx_data_available(const uint8_t uart_n);
+        uint16_t num_rx_data_available();
 
     private:
 
         uint32_t f_cpu;
-        bool _uart_configured[AVR_NUM_UARTS];
+        uint8_t uart_n;
+        bool uart_configured;
         volatile uint16_t rx_buffer_head;
         volatile uint16_t rx_buffer_tail;
         volatile uint8_t rx_buffer[AVRUART_RX_BUFFER_SIZE];
@@ -190,18 +187,16 @@ class AvrUart
         /**
          * @brief  Check if there is any data available to be read from UART
          * receive buffer.
-         * @param  uart_n UART number to use (0 - UART0; 1 - UART1...).
          * @return If there is data available to bead (true or false).
          */
-        bool is_uart_rx_data_available(const uint8_t uart_n);
+        bool is_uart_rx_data_available();
 
         /**
          * @brief  Check if transmission buffer is available to transmit data.
-         * @param  uart_n UART number to use (0 - UART0; 1 - UART1...).
          * @return If data can be send (true) or transmission is currently
          * busy (false).
          */
-        bool is_uart_tx_buffer_available(const uint8_t uart_n);
+        bool is_uart_tx_buffer_available();
 };
 
 /*****************************************************************************/

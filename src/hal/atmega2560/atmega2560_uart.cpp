@@ -3,7 +3,7 @@
  * @file    atmega2560_uart.cpp
  * @author  Jose Miguel Rios Rubio <jrios.github@gmail.com>
  * @date    02-02-2022
- * @version 1.1.0
+ * @version 1.1.1
  *
  * @section DESCRIPTION
  *
@@ -59,7 +59,10 @@
 /* In-Scope Global Elements */
 
 // Pointer to class object instance
-AvrUart* self_class;
+AvrUart* self_class_uart0;
+AvrUart* self_class_uart1;
+AvrUart* self_class_uart2;
+AvrUart* self_class_uart3;
 
 /*****************************************************************************/
 
@@ -67,19 +70,35 @@ AvrUart* self_class;
 
 /**
  * @details
- * The constructor of the class. Takes the CPU Frequency that will be used by
- * the driver.
+ * The constructor of the class. Takes the UART number and the CPU Frequency
+ * that will be used by the driver.
  */
-AvrUart::AvrUart(const uint32_t freq_cpu)
+AvrUart::AvrUart(const uint8_t uart_num, const uint32_t freq_cpu)
 {
     uint16_t i = 0;
 
-    ::self_class = this;
+    // Use UART0 if invalid UART number has been provided
+    uart_n = uart_num;
+    if (uart_n > LAST_UART)
+        uart_n = UART0;
+
+    // Get current object instance according to UART number, and set expected
+    // self-class pointer that going to be used on each UART ISR
+    if (uart_n == UART0)
+        ::self_class_uart0 = this;
+    else if (uart_n == UART1)
+        ::self_class_uart1 = this;
+    else if (uart_n == UART2)
+        ::self_class_uart2 = this;
+    else
+        ::self_class_uart3 = this;
+
     f_cpu = freq_cpu;
-    for (i = 0; i < AVR_NUM_UARTS; i++)
-        _uart_configured[i] = false;
+    uart_configured = false;
+
     for (i = 0; i < AVRUART_RX_BUFFER_SIZE; i++)
         rx_buffer[i] = 0x00;
+
     rx_buffer_head = 0;
     rx_buffer_tail = 0;
 }
@@ -95,13 +114,8 @@ AvrUart::~AvrUart()
  * @details
  * This function configure an UART to be used at specified speed.
  */
-bool AvrUart::setup(const uint8_t uart_n,
-        const uint32_t baud_rate, const bool internal_res_pullup)
+bool AvrUart::setup(const uint32_t baud_rate, const bool internal_res_pullup)
 {
-    // Ignore if invalid UART number provided
-    if (uart_n > LAST_UART)
-        return false;
-
     if (uart_n == UART0)
     {
         // Set Baud Rate (using Double Speed Mode, U2Xn)
@@ -188,7 +202,7 @@ bool AvrUart::setup(const uint8_t uart_n,
     // Set Interrupts Enable Global
     sei();
 
-    _uart_configured[uart_n] = true;
+    uart_configured = true;
 
     return true;
 }
@@ -198,17 +212,15 @@ bool AvrUart::setup(const uint8_t uart_n,
  * This function write to the corresponding UART Serial interface the provided
  * byte of data.
  */
-bool AvrUart::write(const uint8_t uart_n, const uint8_t write_byte)
+bool AvrUart::write(const uint8_t write_byte)
 {
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     // Wait until transmit buffer is empty
     // Make sure any previous transmision has been completed
-    while (!is_uart_tx_buffer_available(uart_n));
+    while (!is_uart_tx_buffer_available());
 
     // Add data byte into transmit buffer
     if (uart_n == UART0)
@@ -228,16 +240,14 @@ bool AvrUart::write(const uint8_t uart_n, const uint8_t write_byte)
  * This function checks if some data has been received and stored in UART
  * receive buffer, and get-return one byte from the received buffer.
  */
-bool AvrUart::read(const uint8_t uart_n, uint8_t* read_byte)
+bool AvrUart::read(uint8_t* read_byte)
 {
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     // Ignore if receive buffer is empty
-    if (num_rx_data_available(uart_n) == 0)
+    if (num_rx_data_available() == 0)
         return false;
 
     // "Pop" byte from receive buffer
@@ -251,18 +261,16 @@ bool AvrUart::read(const uint8_t uart_n, uint8_t* read_byte)
  * @details
  * This function reads data from UART receive buffer until it is empty.
  */
-bool AvrUart::flush_rx(const uint8_t uart_n)
+bool AvrUart::flush_rx()
 {
     uint8_t read_byte = 0xFF;
 
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     // While there is data in receive buffer, read it
-    while (is_uart_rx_data_available(uart_n))
+    while (is_uart_rx_data_available())
     {
         if (uart_n == UART0)
             read_byte = UDR0;
@@ -285,7 +293,7 @@ bool AvrUart::flush_rx(const uint8_t uart_n)
  * This function return the number of data bytes that has been received and are
  * stored in the rx buffer.
  */
-uint16_t AvrUart::num_rx_data_available(const uint8_t uart_n)
+uint16_t AvrUart::num_rx_data_available()
 {
     return (rx_buffer_head - rx_buffer_tail);
 }
@@ -299,12 +307,10 @@ uint16_t AvrUart::num_rx_data_available(const uint8_t uart_n)
  * This function checks the corresponding flag of data received and available
  * to be read from receive buffer of UART from the corresponding register.
  */
-bool AvrUart::is_uart_rx_data_available(const uint8_t uart_n)
+bool AvrUart::is_uart_rx_data_available()
 {
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     if (uart_n == UART0)
@@ -325,12 +331,10 @@ bool AvrUart::is_uart_rx_data_available(const uint8_t uart_n)
  * currently being transmitted, so transmission buffer of UART is busy and
  * can't be used right now.
  */
-bool AvrUart::is_uart_tx_buffer_available(const uint8_t uart_n)
+bool AvrUart::is_uart_tx_buffer_available()
 {
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     if (uart_n == UART0)
@@ -345,7 +349,6 @@ bool AvrUart::is_uart_tx_buffer_available(const uint8_t uart_n)
         return false;
 }
 
-
 /*****************************************************************************/
 
 /* USART Rx & Tx Interrupt Service Rutines */
@@ -356,9 +359,9 @@ bool AvrUart::is_uart_tx_buffer_available(const uint8_t uart_n)
 ISR(USART0_RX_vect) // == void USART_RX0_vect(void)
 {
     // Increase receive buffer head and read-store received byte of data
-    ::self_class->rx_buffer_head = \
-            (::self_class->rx_buffer_head + 1) % AVRUART_RX_BUFFER_SIZE;
-    ::self_class->rx_buffer[::self_class->rx_buffer_head] = UDR0;
+    ::self_class_uart0->rx_buffer_head = \
+            (::self_class_uart0->rx_buffer_head + 1) % AVRUART_RX_BUFFER_SIZE;
+    ::self_class_uart0->rx_buffer[::self_class_uart0->rx_buffer_head] = UDR0;
 }
 
 /**
@@ -367,9 +370,9 @@ ISR(USART0_RX_vect) // == void USART_RX0_vect(void)
 ISR(USART1_RX_vect) // == void USART_RX1_vect(void)
 {
     // Increase receive buffer head and read-store received byte of data
-    ::self_class->rx_buffer_head = \
-            (::self_class->rx_buffer_head + 1) % AVRUART_RX_BUFFER_SIZE;
-    ::self_class->rx_buffer[::self_class->rx_buffer_head] = UDR1;
+    ::self_class_uart1->rx_buffer_head = \
+            (::self_class_uart1->rx_buffer_head + 1) % AVRUART_RX_BUFFER_SIZE;
+    ::self_class_uart1->rx_buffer[::self_class_uart1->rx_buffer_head] = UDR1;
 }
 
 /**
@@ -378,9 +381,9 @@ ISR(USART1_RX_vect) // == void USART_RX1_vect(void)
 ISR(USART2_RX_vect) // == void USART_RX2_vect(void)
 {
     // Increase receive buffer head and read-store received byte of data
-    ::self_class->rx_buffer_head = \
-            (::self_class->rx_buffer_head + 1) % AVRUART_RX_BUFFER_SIZE;
-    ::self_class->rx_buffer[::self_class->rx_buffer_head] = UDR2;
+    ::self_class_uart2->rx_buffer_head = \
+            (::self_class_uart2->rx_buffer_head + 1) % AVRUART_RX_BUFFER_SIZE;
+    ::self_class_uart2->rx_buffer[::self_class_uart2->rx_buffer_head] = UDR2;
 }
 
 /**
@@ -389,9 +392,9 @@ ISR(USART2_RX_vect) // == void USART_RX2_vect(void)
 ISR(USART3_RX_vect) // == void USART_RX3_vect(void)
 {
     // Increase receive buffer head and read-store received byte of data
-    ::self_class->rx_buffer_head = \
-            (::self_class->rx_buffer_head + 1) % AVRUART_RX_BUFFER_SIZE;
-    ::self_class->rx_buffer[::self_class->rx_buffer_head] = UDR3;
+    ::self_class_uart3->rx_buffer_head = \
+            (::self_class_uart3->rx_buffer_head + 1) % AVRUART_RX_BUFFER_SIZE;
+    ::self_class_uart3->rx_buffer[::self_class_uart3->rx_buffer_head] = UDR3;
 }
 
 /*****************************************************************************/

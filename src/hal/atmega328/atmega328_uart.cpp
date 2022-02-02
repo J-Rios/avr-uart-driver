@@ -3,7 +3,7 @@
  * @file    atmega328_uart.cpp
  * @author  Jose Miguel Rios Rubio <jrios.github@gmail.com>
  * @date    02-02-2022
- * @version 1.1.0
+ * @version 1.1.1
  *
  * @section DESCRIPTION
  *
@@ -76,16 +76,18 @@ AvrUart* self_class;
  * The constructor of the class. Takes the CPU Frequency that will be used by
  * the driver.
  */
-AvrUart::AvrUart(const uint32_t freq_cpu)
+AvrUart::AvrUart(const uint8_t uart_num, const uint32_t freq_cpu)
 {
     uint16_t i = 0;
 
     ::self_class = this;
+
     f_cpu = freq_cpu;
-    for (i = 0; i < AVR_NUM_UARTS; i++)
-        _uart_configured[i] = false;
+    uart_configured = false;
+
     for (i = 0; i < AVRUART_RX_BUFFER_SIZE; i++)
         rx_buffer[i] = 0x00;
+
     rx_buffer_head = 0;
     rx_buffer_tail = 0;
 }
@@ -101,13 +103,8 @@ AvrUart::~AvrUart()
  * @details
  * This function configure an UART to be used at specified speed.
  */
-bool AvrUart::setup(const uint8_t uart_n,
-        const uint32_t baud_rate, const bool internal_res_pullup)
+bool AvrUart::setup(const uint32_t baud_rate, const bool internal_res_pullup)
 {
-    // Ignore if invalid UART number provided
-    if (uart_n > LAST_UART)
-        return false;
-
     // Set Baud Rate (using Double Speed Mode, U2Xn)
     UCSR0A = (1 << U2X0);
     UBRR0H = (uint8_t)(((f_cpu / (8UL * baud_rate)) - 1) >> 8);
@@ -129,7 +126,7 @@ bool AvrUart::setup(const uint8_t uart_n,
     // Set Interrupts Enable Global
     sei();
 
-    _uart_configured[uart_n] = true;
+    uart_configured = true;
 
     return true;
 }
@@ -139,17 +136,15 @@ bool AvrUart::setup(const uint8_t uart_n,
  * This function write to the corresponding UART Serial interface the provided
  * byte of data.
  */
-bool AvrUart::write(const uint8_t uart_n, const uint8_t write_byte)
+bool AvrUart::write(const uint8_t write_byte)
 {
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     // Wait until transmit buffer is empty
     // Make sure any previous transmision has been completed
-    while (!is_uart_tx_buffer_available(uart_n));
+    while (!is_uart_tx_buffer_available());
 
     // Add data byte into transmit buffer
     UDR0 = write_byte;
@@ -162,16 +157,14 @@ bool AvrUart::write(const uint8_t uart_n, const uint8_t write_byte)
  * This function checks if some data has been received and stored in UART
  * receive buffer, and get-return one byte from the received buffer.
  */
-bool AvrUart::read(const uint8_t uart_n, uint8_t* read_byte)
+bool AvrUart::read(uint8_t* read_byte)
 {
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     // Ignore if receive buffer is empty
-    if (num_rx_data_available(uart_n) == 0)
+    if (num_rx_data_available() == 0)
         return false;
 
     // "Pop" byte from receive buffer
@@ -185,18 +178,16 @@ bool AvrUart::read(const uint8_t uart_n, uint8_t* read_byte)
  * @details
  * This function reads data from UART receive buffer until it is empty.
  */
-bool AvrUart::flush_rx(const uint8_t uart_n)
+bool AvrUart::flush_rx()
 {
     uint8_t read_byte = 0xFF;
 
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     // While there is data in receive buffer, read it
-    while (is_uart_rx_data_available(uart_n))
+    while (is_uart_rx_data_available())
         read_byte = UDR0;
 
     rx_buffer_head = 0;
@@ -210,7 +201,7 @@ bool AvrUart::flush_rx(const uint8_t uart_n)
  * This function return the number of data bytes that has been received and are
  * stored in the rx buffer.
  */
-uint16_t AvrUart::num_rx_data_available(const uint8_t uart_n)
+uint16_t AvrUart::num_rx_data_available()
 {
     return (rx_buffer_head - rx_buffer_tail);
 }
@@ -224,12 +215,10 @@ uint16_t AvrUart::num_rx_data_available(const uint8_t uart_n)
  * This function checks the corresponding flag of data received and available
  * to be read from receive buffer of UART from the corresponding register.
  */
-bool AvrUart::is_uart_rx_data_available(const uint8_t uart_n)
+bool AvrUart::is_uart_rx_data_available()
 {
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     return (UCSR0A & (1 << RXC0));
@@ -241,12 +230,10 @@ bool AvrUart::is_uart_rx_data_available(const uint8_t uart_n)
  * currently being transmitted, so transmission buffer of UART is busy and
  * can't be used right now.
  */
-bool AvrUart::is_uart_tx_buffer_available(const uint8_t uart_n)
+bool AvrUart::is_uart_tx_buffer_available()
 {
-    // Ignore if invalid UART number provided or UART is not configured yet
-    if (uart_n > LAST_UART)
-        return false;
-    if (!_uart_configured[uart_n])
+    // Ignore if UART is not configured yet
+    if (!uart_configured)
         return false;
 
     return (UCSR0A & (1 << UDRE0));
