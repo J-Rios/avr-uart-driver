@@ -2,8 +2,8 @@
 /**
  * @file    atmega328_uart.h
  * @author  Jose Miguel Rios Rubio <jrios.github@gmail.com>
- * @date    26-01-2022
- * @version 1.0.0
+ * @date    02-02-2022
+ * @version 1.1.0
  *
  * @section DESCRIPTION
  *
@@ -54,6 +54,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// Device/Framework Headers
+#include <avr/interrupt.h>
+
+/*****************************************************************************/
+
+/* Driver Configuration Options */
+
+// Buffer size to store received UART data (bytes)
+// Modify this according to your project requirement
+#if !defined(AVRUART_RX_BUFFER_SIZE)
+    #define AVRUART_RX_BUFFER_SIZE 64
+#endif
+
 /*****************************************************************************/
 
 /* Constants & Defines */
@@ -70,17 +83,35 @@
 
 /*****************************************************************************/
 
+/* Extern ISRs Definitions */
+
+extern "C"
+{
+    /* Check ISR(X) Macro definition */
+
+    // USART data received ISR
+	void USART_RX_vect(void) __attribute__ ((signal));
+};
+
+/*****************************************************************************/
+
 /* Class Interface */
 
 class AvrUart
 {
+    /**
+     * @brief  Set USART receive data Interrupt Service Rutine as a friend
+     * function that can access AvrUart private elements.
+     */
+    friend void USART_RX_vect(void);
+
     public:
 
         /**
          * @brief  Constructor. Takes UART number to use.
-         * @param  f_cpu CPU Frequency (same as Fosc).
+         * @param  freq_cpu CPU Frequency (same as Fosc).
          */
-        AvrUart(const uint32_t f_cpu);
+        AvrUart(const uint32_t freq_cpu);
 
         /**
          * @brief  Destructor.
@@ -117,6 +148,22 @@ class AvrUart
         bool flush_rx(const uint8_t uart_n);
 
         /**
+         * @brief  Get the number of bytes received and available to be read
+         * from UART received data buffer.
+         * @param  uart_n UART number to use (0 - UART0; 1 - UART1...).
+         * @return The number of bytes available to be read from RX buffer.
+         */
+        uint16_t num_rx_data_available(const uint8_t uart_n);
+
+    private:
+
+        uint32_t f_cpu;
+        bool _uart_configured[AVR_NUM_UARTS];
+        volatile uint16_t rx_buffer_head;
+        volatile uint16_t rx_buffer_tail;
+        volatile uint8_t rx_buffer[AVRUART_RX_BUFFER_SIZE];
+
+        /**
          * @brief  Check if there is any data available to be read from UART
          * receive buffer.
          * @param  uart_n UART number to use (0 - UART0; 1 - UART1...).
@@ -131,11 +178,6 @@ class AvrUart
          * busy (false).
          */
         bool is_uart_tx_buffer_available(const uint8_t uart_n);
-
-    private:
-
-        uint32_t _f_cpu;
-        bool _uart_configured[AVR_NUM_UARTS];
 };
 
 /*****************************************************************************/

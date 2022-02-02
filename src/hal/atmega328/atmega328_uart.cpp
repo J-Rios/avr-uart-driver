@@ -2,8 +2,8 @@
 /**
  * @file    atmega328_uart.cpp
  * @author  Jose Miguel Rios Rubio <jrios.github@gmail.com>
- * @date    26-01-2022
- * @version 1.0.0
+ * @date    02-02-2022
+ * @version 1.1.0
  *
  * @section DESCRIPTION
  *
@@ -62,6 +62,13 @@
 
 /*****************************************************************************/
 
+/* In-Scope Global Elements */
+
+// Pointer to class object instance
+AvrUart* self_class;
+
+/*****************************************************************************/
+
 /* Public Methods */
 
 /**
@@ -69,11 +76,18 @@
  * The constructor of the class. Takes the CPU Frequency that will be used by
  * the driver.
  */
-AvrUart::AvrUart(const uint32_t f_cpu)
+AvrUart::AvrUart(const uint32_t freq_cpu)
 {
-    _f_cpu = f_cpu;
-    for (uint8_t i = 0; i < AVR_NUM_UARTS; i++)
+    uint16_t i = 0;
+
+    ::self_class = this;
+    f_cpu = freq_cpu;
+    for (i = 0; i < AVR_NUM_UARTS; i++)
         _uart_configured[i] = false;
+    for (i = 0; i < AVRUART_RX_BUFFER_SIZE; i++)
+        rx_buffer[i] = 0x00;
+    rx_buffer_head = 0;
+    rx_buffer_tail = 0;
 }
 
 /**
@@ -95,11 +109,11 @@ bool AvrUart::setup(const uint8_t uart_n,
         return false;
 
     // Set Baud Rate
-    UBRR0H = (uint8_t)(((_f_cpu / (16L * baud_rate)) - 1) >> 8);
-    UBRR0L = (uint8_t)((_f_cpu / (16L * baud_rate)) - 1);
+    UBRR0H = (uint8_t)(((f_cpu / (16L * baud_rate)) - 1) >> 8);
+    UBRR0L = (uint8_t)((f_cpu / (16L * baud_rate)) - 1);
 
-    // Enable Tx & Rx
-    UCSR0B = (1 << RXEN0) | (1 << TXEN0);
+    // Enable Tx-Rx and enable the use of interrupt for data reception
+    UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0);
 
     // Set frame format: 8 data, 2 stop bit
     UCSR0C = (1 << USBS0) | (3 << UCSZ00);
@@ -110,6 +124,9 @@ bool AvrUart::setup(const uint8_t uart_n,
         DDRD &= ~_BV(PIND0);
         PORTD |= _BV(PIND0);
     }
+
+    // Set Interrupts Enable Global
+    sei();
 
     _uart_configured[uart_n] = true;
 
@@ -153,11 +170,13 @@ bool AvrUart::read(const uint8_t uart_n, uint8_t* read_byte)
         return false;
 
     // Ignore if receive buffer is empty
-    if (!is_uart_rx_data_available(uart_n))
+    if (num_rx_data_available(uart_n) == 0)
         return false;
 
-    // Read byte from receive buffer
-    *read_byte = UDR0;
+    // "Pop" byte from receive buffer
+    rx_buffer_tail = (rx_buffer_tail + 1) % AVRUART_RX_BUFFER_SIZE;
+    *read_byte = rx_buffer[rx_buffer_tail];
+
     return true;
 }
 
@@ -178,8 +197,26 @@ bool AvrUart::flush_rx(const uint8_t uart_n)
     // While there is data in receive buffer, read it
     while (is_uart_rx_data_available(uart_n))
         read_byte = UDR0;
+
+    rx_buffer_head = 0;
+    rx_buffer_tail = 0;
+
     return read_byte;
 }
+
+/**
+ * @details
+ * This function return the number of data bytes that has been received and are
+ * stored in the rx buffer.
+ */
+uint16_t AvrUart::num_rx_data_available(const uint8_t uart_n)
+{
+    return (rx_buffer_head - rx_buffer_tail);
+}
+
+/*****************************************************************************/
+
+/* Private Methods */
 
 /**
  * @details
@@ -216,7 +253,18 @@ bool AvrUart::is_uart_tx_buffer_available(const uint8_t uart_n)
 
 /*****************************************************************************/
 
-/* Private Methods */
+/* USART Rx & Tx Interrupt Service Rutines */
+
+/**
+ * @brief  USART data reception interrupt service rutine.
+ */
+ISR(USART_RX_vect) // == void USART_RX_vect(void)
+{
+    // Increase receive buffer head and read-store received byte of data
+    ::self_class->rx_buffer_head = \
+            (::self_class->rx_buffer_head + 1) % AVRUART_RX_BUFFER_SIZE;
+    ::self_class->rx_buffer[::self_class->rx_buffer_head] = UDR0;
+}
 
 /*****************************************************************************/
 
