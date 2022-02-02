@@ -104,9 +104,10 @@ bool AvrUart::setup(const uint8_t uart_n,
 
     if (uart_n == UART0)
     {
-        // Set Baud Rate
-        UBRR0H = (uint8_t)(((f_cpu / (16L * baud_rate)) - 1) >> 8);
-        UBRR0L = (uint8_t)((f_cpu / (16L * baud_rate)) - 1);
+        // Set Baud Rate (using Double Speed Mode, U2Xn)
+        UCSR0A = (1 << U2X0);
+        UBRR0H = (uint8_t)(((f_cpu / (8UL * baud_rate)) - 1) >> 8);
+        UBRR0L = (uint8_t)((f_cpu / (8UL * baud_rate)) - 1);
 
         // Enable Tx-Rx and enable the use of interrupt for data reception
         UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0);
@@ -123,9 +124,10 @@ bool AvrUart::setup(const uint8_t uart_n,
     }
     else if (uart_n == UART1)
     {
-        // Set Baud Rate
-        UBRR1H = (uint8_t)(((f_cpu / (16L * baud_rate)) - 1) >> 8);
-        UBRR1L = (uint8_t)((f_cpu / (16L * baud_rate)) - 1);
+        // Set Baud Rate (using Double Speed Mode, U2Xn)
+        UCSR1A = (1 << U2X1);
+        UBRR1H = (uint8_t)(((f_cpu / (8UL * baud_rate)) - 1) >> 8);
+        UBRR1L = (uint8_t)((f_cpu / (8UL * baud_rate)) - 1);
 
         // Enable Tx-Rx and enable the use of interrupt for data reception
         UCSR1B = (1 << RXEN1) | (1 << TXEN1) | (1 << RXCIE1);
@@ -142,9 +144,10 @@ bool AvrUart::setup(const uint8_t uart_n,
     }
     else if (uart_n == UART2)
     {
-        // Set Baud Rate
-        UBRR2H = (uint8_t)(((f_cpu / (16L * baud_rate)) - 1) >> 8);
-        UBRR2L = (uint8_t)((f_cpu / (16L * baud_rate)) - 1);
+        // Set Baud Rate (using Double Speed Mode, U2Xn)
+        UCSR2A = (1 << U2X2);
+        UBRR2H = (uint8_t)(((f_cpu / (8UL * baud_rate)) - 1) >> 8);
+        UBRR2L = (uint8_t)((f_cpu / (8UL * baud_rate)) - 1);
 
         // Enable Tx-Rx and enable the use of interrupt for data reception
         UCSR2B = (1 << RXEN2) | (1 << TXEN2) | (1 << RXCIE2);
@@ -161,9 +164,10 @@ bool AvrUart::setup(const uint8_t uart_n,
     }
     else if (uart_n == UART3)
     {
-        // Set Baud Rate
-        UBRR3H = (uint8_t)(((f_cpu / (16L * baud_rate)) - 1) >> 8);
-        UBRR3L = (uint8_t)((f_cpu / (16L * baud_rate)) - 1);
+        // Set Baud Rate (using Double Speed Mode, U2Xn)
+        UCSR3A = (1 << U2X3);
+        UBRR3H = (uint8_t)(((f_cpu / (8UL * baud_rate)) - 1) >> 8);
+        UBRR3L = (uint8_t)((f_cpu / (8UL * baud_rate)) - 1);
 
         // Enable Tx-Rx and enable the use of interrupt for data reception
         UCSR3B = (1 << RXEN3) | (1 << TXEN3) | (1 << RXCIE3);

@@ -39,6 +39,11 @@
 
 /* Constants & Defines */
 
+// Default CPU Frequency to use if has not been provided
+#if !defined(F_CPU)
+    #define F_CPU 16000000UL
+#endif
+
 // Firmware Application Version
 #define FW_APP_VERSION "1.0.0"
 
@@ -46,7 +51,7 @@
 #define UART_NUM UART0
 
 // UART Serial Speed Baud Rate
-#define UART_BAUD_RATE 19200
+#define UART_BAUD_RATE 9600
 
 /*****************************************************************************/
 

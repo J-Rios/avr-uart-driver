@@ -108,9 +108,10 @@ bool AvrUart::setup(const uint8_t uart_n,
     if (uart_n > LAST_UART)
         return false;
 
-    // Set Baud Rate
-    UBRR0H = (uint8_t)(((f_cpu / (16L * baud_rate)) - 1) >> 8);
-    UBRR0L = (uint8_t)((f_cpu / (16L * baud_rate)) - 1);
+    // Set Baud Rate (using Double Speed Mode, U2Xn)
+    UCSR0A = (1 << U2X0);
+    UBRR0H = (uint8_t)(((f_cpu / (8UL * baud_rate)) - 1) >> 8);
+    UBRR0L = (uint8_t)((f_cpu / (8UL * baud_rate)) - 1);
 
     // Enable Tx-Rx and enable the use of interrupt for data reception
     UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0);
