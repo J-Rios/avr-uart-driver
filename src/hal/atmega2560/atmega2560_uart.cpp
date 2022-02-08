@@ -33,6 +33,8 @@
 
 /* Include Guards */
 
+#if !defined(ARDUINO)
+
 #if defined(__AVR_ATmega640__)   || defined(__AVR_ATmega1280__)  || \
     defined(__AVR_ATmega1281__)  || defined(__AVR_ATmega2560__)  || \
     defined(__AVR_ATmega2561__)
@@ -400,3 +402,5 @@ ISR(USART3_RX_vect) // == void USART_RX3_vect(void)
 /*****************************************************************************/
 
 #endif /* defined(__AVR_ATmega640__) || ... || defined(__AVR_ATmega2561__) */
+
+#endif /* !defined(ARDUINO) */

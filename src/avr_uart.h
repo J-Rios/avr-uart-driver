@@ -39,7 +39,11 @@
 
 /* Hardware Supported Devices Selector */
 
-#if \
+#if defined(ARDUINO)
+
+    #warning "[AVR-UART Driver] Arduino Framework can't be used"
+
+#elif \
 defined(__AVR_ATmega48__)    || defined(__AVR_ATmega48A__)   || \
 defined(__AVR_ATmega48PA__)  || defined(__AVR_ATmega48PB__)  || \
 defined(__AVR_ATmega48P__)   || defined(__AVR_ATmega88__)    || \

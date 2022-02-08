@@ -33,6 +33,8 @@
 
 /* Include Guard */
 
+#if !defined(ARDUINO)
+
 #if defined(__AVR_ATmega48__)    || defined(__AVR_ATmega48A__)   || \
     defined(__AVR_ATmega48PA__)  || defined(__AVR_ATmega48PB__)  || \
     defined(__AVR_ATmega48P__)   || defined(__AVR_ATmega88__)    || \
@@ -179,3 +181,5 @@ class AvrUart
 #endif /* ATMEGA328_UART_H_ */
 
 #endif /* defined(__AVR_ATmega48__) || ... || defined(__AVR_ATmega328P__) */
+
+#endif /* !defined(ARDUINO) */
