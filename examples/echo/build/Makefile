@@ -145,13 +145,15 @@ build: $(PRJ).bin
 
 # Target: make clean (remove all previously builds)
 clean:
-	rm -f $(BUILDDIR)/*.o
+	rm -rf $(BUILDDIR)/obj
 	rm -f $(BUILDDIR)/*.su
 	rm -f $(BUILDDIR)/$(PRJ).elf
 	rm -f $(BUILDDIR)/$(PRJ).hex
 	rm -f $(BUILDDIR)/$(PRJ).bin
 	rm -f $(BUILDDIR)/dump.bin
 	rm -f $(BUILDDIR)/dump.hex
+	rm -f $(BUILDDIR)/memory_program.txt
+	rm -f $(BUILDDIR)/memory_ram.txt
 
 # Target: make rebuild (clean previously builds and build again)
 rebuild: clean build
